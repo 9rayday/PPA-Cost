@@ -6,6 +6,11 @@
 var SHEET_NAME = 'records';
 var HEAD = ['id', 'date', 'side', 'level', 'spot', 'gap', 'price', 'manual', 'deleted', 'updatedAt'];
 
+/** 편집기에서 한 번 실행해 권한을 승인하고 records 탭을 만듭니다. */
+function setup() {
+  sheet_();
+}
+
 function doGet() {
   return out_({ ok: true, service: 'ppa-cost' });
 }
