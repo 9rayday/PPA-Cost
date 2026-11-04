@@ -235,16 +235,67 @@
   $('v-year').onclick=function(){view='year';setView();refresh()};
   refresh();
 
-  if(window.claude&&window.claude.use){
-    window.claude.use('db').then(function(d){
-      if(!d){setStatus('저장소 없음');return}
-      db=d;
-      var t=setTimeout(function(){setStatus('이력 불러오기 실패')},10000);
-      d.collection('records').onSnapshot(function(snap){
-        clearTimeout(t);
-        records=snap.docs.map(function(x){var v=x.data()||{};v.id=x.id;return v}).filter(function(r){return !r.deleted&&(r.side==='supply'||r.side==='demand')&&isFinite(r.level)&&(isFinite(r.gap)||isFinite(r.price))});
-        refresh();
-      },function(){clearTimeout(t);setStatus('이력 읽기 실패')});
-    }).catch(function(){});
+  /* ---------- storage: Google Sheets (Apps Script) or claude.ai db ---------- */
+  function keyGet(){try{return localStorage.getItem('ppa_key')||''}catch(e){return ''}}
+  function keySet(v){try{if(v)localStorage.setItem('ppa_key',v);else localStorage.removeItem('ppa_key')}catch(e){}}
+  function askKey(){
+    return new Promise(function(resolve){
+      var d=document.createElement('div');
+      d.className='box';d.style.cssText='position:fixed;left:50%;top:30%;transform:translateX(-50%);width:min(320px,90vw);z-index:20;box-shadow:0 8px 30px rgba(0,0,0,.35)';
+      d.innerHTML='<div class="card"><label class="lbl" for="k-in">접속 키</label><input id="k-in" type="password" autocomplete="current-password" style="font:inherit;font-size:16px;background:transparent;color:var(--fg);border:0;border-bottom:1px solid var(--line);padding:2px 0;width:100%"></div><button class="btn" id="k-ok">확인</button>';
+      document.body.appendChild(d);
+      var go=function(){var v=$('k-in').value.trim();if(!v)return;keySet(v);d.remove();resolve(v)};
+      $('k-ok').onclick=go;$('k-in').onkeydown=function(e){if(e.key==='Enter')go()};$('k-in').focus();
+    });
   }
+  function sheetDb(url){
+    var loaders=[],key=keyGet();
+    function call(body){
+      body.key=key;
+      return fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)})
+        .then(function(r){return r.json()})
+        .then(function(j){
+          if(!j.ok){
+            var e=new Error(j.error||'error');e.code=j.error;
+            if(j.error==='unauthorized'){keySet('');setStatus('키 오류');setTimeout(function(){location.reload()},800)}
+            throw e;
+          }
+          return j;
+        });
+    }
+    function reload(){loaders.forEach(function(f){f()})}
+    return {collection:function(name){return {
+      onSnapshot:function(cb,err){
+        var load=function(){call({action:'list',collection:name}).then(function(j){
+          cb({docs:j.docs.map(function(d){return {id:d.id,exists:true,data:function(){return d.data}}})});
+        }).catch(function(e){if(err)err(e)})};
+        loaders.push(load);load();
+        var t=setInterval(load,30000);
+        return function(){clearInterval(t);loaders=loaders.filter(function(f){return f!==load})};
+      },
+      doc:function(id){return {
+        set:function(data){return call({action:'set',collection:name,id:id,data:data}).then(function(){reload()})},
+        delete:function(){return call({action:'delete',collection:name,id:id}).then(function(){reload()})},
+        get:function(){return call({action:'get',collection:name,id:id}).then(function(j){return {exists:!!j.doc,data:function(){return j.doc}}})}
+      }}
+    }}};
+  }
+  function getDb(){
+    var cfg=window.PPA_CONFIG||{};
+    if(cfg.APPS_SCRIPT_URL){
+      return (keyGet()?Promise.resolve(keyGet()):askKey()).then(function(){return sheetDb(cfg.APPS_SCRIPT_URL)});
+    }
+    if(window.claude&&window.claude.use)return window.claude.use('db');
+    return Promise.resolve(null);
+  }
+  getDb().then(function(d){
+    if(!d){setStatus('저장소 없음');return}
+    db=d;
+    var t=setTimeout(function(){setStatus('이력 불러오기 실패')},10000);
+    d.collection('records').onSnapshot(function(snap){
+      clearTimeout(t);
+      records=snap.docs.map(function(x){var v=x.data()||{};v.id=x.id;return v}).filter(function(r){return !r.deleted&&(r.side==='supply'||r.side==='demand')&&isFinite(r.level)&&(isFinite(r.gap)||isFinite(r.price))});
+      refresh();
+    },function(){clearTimeout(t);setStatus('이력 읽기 실패')});
+  }).catch(function(){});
 })();
