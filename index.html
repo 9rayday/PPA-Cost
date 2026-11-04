@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>직접 PPA 현황</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>PPA 체결 강도 보드</h1>
+
+  <section class="box" aria-labelledby="spot-h">
+    <h2 id="spot-h">오늘의 현물가</h2>
+    <div class="cards3">
+      <div class="card"><label class="lbl" for="smp">SMP</label><input id="smp" type="number" step="0.01" value="139.45"></div>
+      <div class="card"><label class="lbl" for="rec">REC</label><input id="rec" type="number" step="0.01" value="70.98"></div>
+      <div class="card"><span class="lbl">합계</span><div class="val" id="spot">210.43</div></div>
+    </div>
+  </section>
+
+  <section class="box" id="p-supply" aria-labelledby="s-h"></section>
+  <section class="box" id="p-demand" aria-labelledby="d-h"></section>
+
+  <section class="box" aria-labelledby="t-h">
+    <div class="head">
+      <h2 id="t-h">월별 체결 단가 추이</h2>
+      <div class="seg" role="group" aria-label="보기"><button id="v-month" aria-pressed="true">월별</button><button id="v-year" aria-pressed="false">연도별</button></div>
+    </div>
+    <div class="chart" id="chart"></div>
+    <div class="legend"><span><i style="background:var(--bar1)"></i>발전</span><span><i style="background:var(--bar2)"></i>수요</span><span>- - 예상</span></div>
+    <div class="entry" id="entry"></div>
+  </section>
+
+  <section class="box"><details id="hist-d"><summary>기록 이력</summary><div class="tw" id="hist"></div></details><span class="msg" id="status" role="status"></span></section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
