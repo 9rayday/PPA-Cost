@@ -85,20 +85,22 @@
     var slope=sxx?sxy/sxx:0;
     return my+slope*(1-mx);
   }
+  function slot(k,label){
+    var isF=k===mkey(CY,CM+1),sa=monthVal('supply',k),da=monthVal('demand',k),fS=isF&&!isFinite(sa),fD=isF&&!isFinite(da);
+    return {key:k,label:label,sup:fS?forecast('supply'):sa,dem:fD?forecast('demand'):da,fS:fS,fD:fD,fc:fS||fD};
+  }
   function slots(){
     var out=[],i;
     if(view==='month'&&viewYear){
-      for(i=1;i<=12;i++){var k2=mkey(viewYear,i),fc2=k2===mkey(CY,CM+1);
-        out.push({key:k2,label:p2(i),sup:fc2?forecast('supply'):monthVal('supply',k2),dem:fc2?forecast('demand'):monthVal('demand',k2),fc:fc2});}
+      for(i=1;i<=12;i++){out.push(slot(mkey(viewYear,i),p2(i)))}
     }else if(view==='month'){
-      for(i=-10;i<=1;i++){var k=mkey(CY,CM+i);
-        var fc=i===1;
-        out.push({key:k,label:k.slice(2).replace('-','.'),sup:fc?forecast('supply'):monthVal('supply',k),dem:fc?forecast('demand'):monthVal('demand',k),fc:fc});}
+      for(i=-10;i<=1;i++){var k=mkey(CY,CM+i);out.push(slot(k,k.slice(2).replace('-','.')))}
     }else{
       var y0=CY;records.forEach(function(r){var y=parseInt(String(r.date).slice(0,4),10);if(isFinite(y)&&y<y0)y0=y});
       yearly.forEach(function(r){var y=parseInt(r.year,10);if(isFinite(y)&&y<y0)y0=y});
-      if(CY-y0<4)y0=CY-4;
-      for(var y=y0;y<=CY;y++)out.push({key:String(y),label:String(y),sup:yearVal('supply',y),dem:yearVal('demand',y),fc:false});
+      if(y0>2024)y0=2024;
+      var y1=Math.max(CY+2,2028);
+      for(var y=y0;y<=y1;y++)out.push({key:String(y),label:String(y),sup:yearVal('supply',y),dem:yearVal('demand',y),fc:false,fS:false,fD:false});
     }
     return out;
   }
@@ -115,17 +117,17 @@
     var bw=Math.min(sw*0.3,22),pts={sup:[],dem:[]};
     S.forEach(function(s,i){
       var c=L+(i+0.5)*sw,sx=c-bw/2-1,dx=c+bw/2+1;
-      if(s.key===(view==='month'?sel:selY)&&!s.fc)svg+='<rect class="sel" x="'+(L+i*sw)+'" y="'+T+'" width="'+sw+'" height="'+ph+'" rx="3"/>';
-      if(!s.fc){
-        if(isFinite(s.sup))svg+='<rect class="b1" x="'+(sx-bw/2)+'" y="'+Y(s.sup)+'" width="'+bw+'" height="'+(T+ph-Y(s.sup))+'"><title>발전 '+fmt(s.sup)+'</title></rect>';
-        if(isFinite(s.dem))svg+='<rect class="b2" x="'+(dx-bw/2)+'" y="'+Y(s.dem)+'" width="'+bw+'" height="'+(T+ph-Y(s.dem))+'"><title>수요 '+fmt(s.dem)+'</title></rect>';
+      if(s.key===(view==='month'?sel:selY)&&true)svg+='<rect class="sel" x="'+(L+i*sw)+'" y="'+T+'" width="'+sw+'" height="'+ph+'" rx="3"/>';
+      {
+        if(isFinite(s.sup)&&!s.fS)svg+='<rect class="b1" x="'+(sx-bw/2)+'" y="'+Y(s.sup)+'" width="'+bw+'" height="'+(T+ph-Y(s.sup))+'"><title>발전 '+fmt(s.sup)+'</title></rect>';
+        if(isFinite(s.dem)&&!s.fD)svg+='<rect class="b2" x="'+(dx-bw/2)+'" y="'+Y(s.dem)+'" width="'+bw+'" height="'+(T+ph-Y(s.dem))+'"><title>수요 '+fmt(s.dem)+'</title></rect>';
       }
-      if(s.fc){
-        if(isFinite(s.sup))svg+='<rect class="fcb f1" x="'+(sx-bw/2)+'" y="'+Y(s.sup)+'" width="'+bw+'" height="'+(T+ph-Y(s.sup))+'"><title>발전 예상 '+fmt(s.sup)+'</title></rect>';
-        if(isFinite(s.dem))svg+='<rect class="fcb f2" x="'+(dx-bw/2)+'" y="'+Y(s.dem)+'" width="'+bw+'" height="'+(T+ph-Y(s.dem))+'"><title>수요 예상 '+fmt(s.dem)+'</title></rect>';
+      {
+        if(isFinite(s.sup)&&s.fS)svg+='<rect class="fcb f1" x="'+(sx-bw/2)+'" y="'+Y(s.sup)+'" width="'+bw+'" height="'+(T+ph-Y(s.sup))+'"><title>발전 예상 '+fmt(s.sup)+'</title></rect>';
+        if(isFinite(s.dem)&&s.fD)svg+='<rect class="fcb f2" x="'+(dx-bw/2)+'" y="'+Y(s.dem)+'" width="'+bw+'" height="'+(T+ph-Y(s.dem))+'"><title>수요 예상 '+fmt(s.dem)+'</title></rect>';
       }
-      if(isFinite(s.sup))pts.sup.push({x:sx,y:Y(s.sup),fc:s.fc});
-      if(isFinite(s.dem))pts.dem.push({x:dx,y:Y(s.dem),fc:s.fc});
+      if(isFinite(s.sup))pts.sup.push({x:sx,y:Y(s.sup),fc:s.fS});
+      if(isFinite(s.dem))pts.dem.push({x:dx,y:Y(s.dem),fc:s.fD});
       svg+='<text x="'+c+'" y="'+(H-9)+'" text-anchor="middle">'+(view==='month'&&sw<44?s.label.slice(-2):s.label)+(s.fc?'*':'')+'</text>';
     });
     ['sup','dem'].forEach(function(k,ki){
@@ -135,7 +137,7 @@
       }
       p.forEach(function(q){svg+='<circle cx="'+q.x+'" cy="'+q.y+'" r="3.5" class="'+(ki?'b2':'b1')+'"'+(q.fc?' style="fill:var(--card);stroke:var(--'+(ki?'bar2':'bar1')+');stroke-width:2"':' style="stroke:var(--card);stroke-width:1.5"')+'/>'});
     });
-    S.forEach(function(s,i){if(!s.fc)svg+='<rect class="hit" data-key="'+s.key+'" x="'+(L+i*sw)+'" y="'+T+'" width="'+sw+'" height="'+(ph+B)+'"/>'});
+    S.forEach(function(s,i){svg+='<rect class="hit" data-key="'+s.key+'" x="'+(L+i*sw)+'" y="'+T+'" width="'+sw+'" height="'+(ph+B)+'"/>'});
     svg+='</svg>';
     var el=$('chart');el.innerHTML=svg;
     Array.prototype.forEach.call(el.querySelectorAll('.hit'),function(r){r.onclick=function(){
