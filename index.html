@@ -6,7 +6,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>직접 PPA 현황</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body class="locked">
 <main>
@@ -30,13 +30,13 @@
       <div class="seg" role="group" aria-label="보기"><button id="v-month" aria-pressed="true">월별</button><button id="v-year" aria-pressed="false">연도별</button></div>
     </div>
     <div class="chart" id="chart"></div>
-    <div class="legend"><span><i style="background:var(--bar1)"></i>발전</span><span><i style="background:var(--bar2)"></i>수요</span><span>- - 예상</span></div>
+    <div class="legend"><span><i style="background:var(--bar1)"></i>발전</span><span><i style="background:var(--bar2)"></i>수요</span><span><i style="background:transparent;border:1.5px dashed var(--bar1)"></i>예상</span></div>
     <div class="entry" id="entry"></div>
   </section>
 
   <section class="box"><details id="hist-d"><summary>기록 이력</summary><div class="tw" id="hist"></div></details><span class="msg" id="status" role="status"></span></section>
 </main>
-<script src="config.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="config.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>

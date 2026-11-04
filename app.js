@@ -75,15 +75,25 @@
     var a=[];records.forEach(function(r){if(r.side===side&&r.level===5&&isFinite(r.price)&&String(r.date).slice(0,4)===String(y))a.push(r.price)});
     return avg(a);
   }
+  function forecast(side){
+    var xs=[],ys=[],i,v;
+    for(i=-4;i<=0;i++){v=monthVal(side,mkey(CY,CM+i));if(isFinite(v)){xs.push(i);ys.push(v)}}
+    if(!ys.length)return NaN;
+    if(ys.length===1)return ys[0];
+    var mx=avg(xs),my=avg(ys),sxy=0,sxx=0;
+    for(i=0;i<xs.length;i++){sxy+=(xs[i]-mx)*(ys[i]-my);sxx+=(xs[i]-mx)*(xs[i]-mx)}
+    var slope=sxx?sxy/sxx:0;
+    return my+slope*(1-mx);
+  }
   function slots(){
     var out=[],i;
     if(view==='month'&&viewYear){
       for(i=1;i<=12;i++){var k2=mkey(viewYear,i),fc2=k2===mkey(CY,CM+1);
-        out.push({key:k2,label:p2(i),sup:fc2?suggest('supply'):monthVal('supply',k2),dem:fc2?suggest('demand'):monthVal('demand',k2),fc:fc2});}
+        out.push({key:k2,label:p2(i),sup:fc2?forecast('supply'):monthVal('supply',k2),dem:fc2?forecast('demand'):monthVal('demand',k2),fc:fc2});}
     }else if(view==='month'){
       for(i=-10;i<=1;i++){var k=mkey(CY,CM+i);
         var fc=i===1;
-        out.push({key:k,label:k.slice(2).replace('-','.'),sup:fc?suggest('supply'):monthVal('supply',k),dem:fc?suggest('demand'):monthVal('demand',k),fc:fc});}
+        out.push({key:k,label:k.slice(2).replace('-','.'),sup:fc?forecast('supply'):monthVal('supply',k),dem:fc?forecast('demand'):monthVal('demand',k),fc:fc});}
     }else{
       var y0=CY;records.forEach(function(r){var y=parseInt(String(r.date).slice(0,4),10);if(isFinite(y)&&y<y0)y0=y});
       yearly.forEach(function(r){var y=parseInt(r.year,10);if(isFinite(y)&&y<y0)y0=y});
@@ -93,7 +103,7 @@
     return out;
   }
   function renderChart(){
-    var S=slots(),W=640,H=230,L=38,R=10,T=14,B=26,n=S.length,sw=(W-L-R)/n;
+    var S=slots(),W=Math.max(300,($('chart').clientWidth||640)-16),H=230,L=38,R=10,T=14,B=26,n=S.length,sw=(W-L-R)/n;
     var vals=[];S.forEach(function(s){if(isFinite(s.sup))vals.push(s.sup);if(isFinite(s.dem))vals.push(s.dem)});
     var mn,mx;
     if(vals.length){mn=Math.floor((Math.min.apply(null,vals)-8)/10)*10;mx=Math.ceil((Math.max.apply(null,vals)+8)/10)*10;if(mx-mn<20)mx=mn+20}
@@ -110,9 +120,13 @@
         if(isFinite(s.sup))svg+='<rect class="b1" x="'+(sx-bw/2)+'" y="'+Y(s.sup)+'" width="'+bw+'" height="'+(T+ph-Y(s.sup))+'"><title>발전 '+fmt(s.sup)+'</title></rect>';
         if(isFinite(s.dem))svg+='<rect class="b2" x="'+(dx-bw/2)+'" y="'+Y(s.dem)+'" width="'+bw+'" height="'+(T+ph-Y(s.dem))+'"><title>수요 '+fmt(s.dem)+'</title></rect>';
       }
+      if(s.fc){
+        if(isFinite(s.sup))svg+='<rect class="fcb f1" x="'+(sx-bw/2)+'" y="'+Y(s.sup)+'" width="'+bw+'" height="'+(T+ph-Y(s.sup))+'"><title>발전 예상 '+fmt(s.sup)+'</title></rect>';
+        if(isFinite(s.dem))svg+='<rect class="fcb f2" x="'+(dx-bw/2)+'" y="'+Y(s.dem)+'" width="'+bw+'" height="'+(T+ph-Y(s.dem))+'"><title>수요 예상 '+fmt(s.dem)+'</title></rect>';
+      }
       if(isFinite(s.sup))pts.sup.push({x:sx,y:Y(s.sup),fc:s.fc});
       if(isFinite(s.dem))pts.dem.push({x:dx,y:Y(s.dem),fc:s.fc});
-      svg+='<text x="'+c+'" y="'+(H-9)+'" text-anchor="middle">'+s.label+(s.fc?'*':'')+'</text>';
+      svg+='<text x="'+c+'" y="'+(H-9)+'" text-anchor="middle">'+(view==='month'&&sw<44?s.label.slice(-2):s.label)+(s.fc?'*':'')+'</text>';
     });
     ['sup','dem'].forEach(function(k,ki){
       var cls=ki?'l2':'l1',p=pts[k],i;
@@ -233,6 +247,7 @@
   }
   $('v-month').onclick=function(){view='month';viewYear=null;sel=mkey(CY,CM);setView();refresh()};
   $('v-year').onclick=function(){view='year';setView();refresh()};
+  var rz=null;window.addEventListener('resize',function(){clearTimeout(rz);rz=setTimeout(renderChart,120)});
   refresh();
 
   /* ---------- storage: Google Sheets (Apps Script) or claude.ai db ---------- */
