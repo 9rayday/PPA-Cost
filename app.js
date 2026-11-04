@@ -239,7 +239,7 @@
 
   $('hist').addEventListener('click',onHistClick);
   build('supply');build('demand');
-  $('smp').oninput=refresh;$('rec').oninput=refresh;
+  $('smp').oninput=function(){spotEdited=true;refresh()};$('rec').oninput=function(){spotEdited=true;refresh()};
   function setView(){
     $('v-month').setAttribute('aria-pressed',String(view==='month'));
     $('v-year').setAttribute('aria-pressed',String(view==='year'));
@@ -252,7 +252,7 @@
 
   /* ---------- storage: Google Sheets (Apps Script) or claude.ai db ---------- */
   var IDLE_MS=5*60*1000,CFG=window.PPA_CONFIG||{},SHEET=!!CFG.APPS_SCRIPT_URL;
-  var unlocked=false,unsub=null,lastAct=Date.now();
+  var unlocked=false,unsub=null,unsub2=null,lastAct=Date.now(),spotEdited=false;
   function ssGet(k){try{return sessionStorage.getItem(k)}catch(e){return null}}
   function ssSet(k,v){try{if(v==null)sessionStorage.removeItem(k);else sessionStorage.setItem(k,v)}catch(e){}}
   function keyGet(){var t=parseInt(ssGet('ppa_t')||'0',10);if(Date.now()-t>IDLE_MS){ssSet('ppa_key',null);return ''}return ssGet('ppa_key')||''}
@@ -280,6 +280,8 @@
   function lockNow(msg){
     unlocked=false;keySet('');
     if(unsub){try{unsub()}catch(e){}unsub=null}
+    if(unsub2){try{unsub2()}catch(e){}unsub2=null}
+    spotEdited=false;$('spot-date').textContent='';
     db=null;records=[];editId=null;
     ['supply','demand'].forEach(function(k){state[k].level=0;$(k+'-price').value=''});
     refresh();
@@ -338,6 +340,13 @@
         records=snap.docs.map(function(x){var v=x.data()||{};v.id=x.id;return v}).filter(function(r){return !r.deleted&&(r.side==='supply'||r.side==='demand')&&isFinite(r.level)&&(isFinite(r.gap)||isFinite(r.price))});
         refresh();
       },function(e){clearTimeout(t);setStatus('이력 읽기 실패: '+errText(e))});
+      unsub2=d.collection('spot').onSnapshot(function(snap){
+        var l=snap.docs.map(function(x){var v=x.data()||{};v.id=x.id;return v}).filter(function(r){return isFinite(r.smp)&&isFinite(r.rec)}).sort(function(x,y){return x.id<y.id?1:-1})[0];
+        if(!l)return;
+        if(!spotEdited){$('smp').value=l.smp;$('rec').value=l.rec}
+        $('spot-date').textContent='기준 '+String(l.date||l.id).slice(0,10);
+        refresh();
+      },function(){});
     }).catch(function(){});
   }
   if(!SHEET)document.body.classList.remove('locked');

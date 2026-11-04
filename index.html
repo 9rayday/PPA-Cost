@@ -6,7 +6,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>직접 PPA 현황</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body class="locked">
 <main>
@@ -15,10 +15,11 @@
   <section class="box" aria-labelledby="spot-h">
     <h2 id="spot-h">오늘의 현물가</h2>
     <div class="cards3">
-      <div class="card"><label class="lbl" for="smp">SMP</label><input id="smp" type="number" step="0.01" value="139.45"></div>
-      <div class="card"><label class="lbl" for="rec">REC</label><input id="rec" type="number" step="0.01" value="70.98"></div>
-      <div class="card"><span class="lbl">합계</span><div class="val" id="spot">210.43</div></div>
+      <div class="card"><label class="lbl" for="smp">SMP</label><input id="smp" type="number" step="0.01"></div>
+      <div class="card"><label class="lbl" for="rec">REC</label><input id="rec" type="number" step="0.01"></div>
+      <div class="card"><span class="lbl">합계</span><div class="val" id="spot">-</div></div>
     </div>
+    <span class="msg" id="spot-date"></span>
   </section>
 
   <section class="box" id="p-supply" aria-labelledby="s-h"></section>
@@ -36,7 +37,7 @@
 
   <section class="box"><details id="hist-d"><summary>기록 이력</summary><div class="tw" id="hist"></div></details><span class="msg" id="status" role="status"></span></section>
 </main>
-<script src="config.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>
