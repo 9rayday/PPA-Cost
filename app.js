@@ -157,7 +157,7 @@
     });
     if(!jobs.length)return;
     $('m-save').disabled=true;
-    Promise.all(jobs).then(function(){setStatus('저장됨')}).catch(function(){setStatus('저장 실패')}).then(function(){renderEntry()});
+    Promise.all(jobs).then(function(){setStatus('저장됨')}).catch(function(e){setStatus('저장 실패: '+errText(e))}).then(function(){renderEntry()});
   }
 
   function renderHist(){
@@ -219,7 +219,7 @@
     if(st.level===5)rec.price=Math.round(price*100)/100;
     db.collection('records').doc(id).set(rec)
       .then(function(){$(key+'-msg').textContent='기록됨';setTimeout(function(){$(key+'-msg').textContent=''},2500)})
-      .catch(function(){$(key+'-msg').textContent='저장 실패'})
+      .catch(function(e){$(key+'-msg').textContent='저장 실패: '+errText(e)})
       .then(function(){refresh()});
   }
 
@@ -306,7 +306,7 @@
     if(SHEET){
       var k=keyGet();
       return (k?Promise.resolve(k):askKey(msg)).then(function(key){
-        keySet(key);unlocked=true;touch();
+        keySet(key);unlocked=true;touch();document.body.classList.remove('locked');
         return sheetDb(CFG.APPS_SCRIPT_URL,key);
       });
     }
@@ -322,7 +322,7 @@
         clearTimeout(t);
         records=snap.docs.map(function(x){var v=x.data()||{};v.id=x.id;return v}).filter(function(r){return !r.deleted&&(r.side==='supply'||r.side==='demand')&&isFinite(r.level)&&(isFinite(r.gap)||isFinite(r.price))});
         refresh();
-      },function(){clearTimeout(t);setStatus('이력 읽기 실패')});
+      },function(e){clearTimeout(t);setStatus('이력 읽기 실패: '+errText(e))});
     }).catch(function(){});
   }
   if(!SHEET)document.body.classList.remove('locked');

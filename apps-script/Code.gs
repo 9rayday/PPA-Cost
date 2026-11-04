@@ -39,6 +39,12 @@ function out_(obj) {
 
 function sheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) {
+    // 독립 스크립트인 경우: 스크립트 속성 SHEET_ID 에 스프레드시트 ID 를 넣으세요.
+    var id = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+    if (!id) throw new Error('SHEET_ID 속성이 필요합니다(스프레드시트에 연결되지 않은 스크립트)');
+    ss = SpreadsheetApp.openById(id);
+  }
   var sh = ss.getSheetByName(SHEET_NAME);
   if (!sh) {
     sh = ss.insertSheet(SHEET_NAME);
