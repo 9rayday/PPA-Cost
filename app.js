@@ -236,20 +236,42 @@
   refresh();
 
   /* ---------- storage: Google Sheets (Apps Script) or claude.ai db ---------- */
-  function keyGet(){try{return localStorage.getItem('ppa_key')||''}catch(e){return ''}}
-  function keySet(v){try{if(v)localStorage.setItem('ppa_key',v);else localStorage.removeItem('ppa_key')}catch(e){}}
-  function askKey(){
+  var IDLE_MS=5*60*1000,CFG=window.PPA_CONFIG||{},SHEET=!!CFG.APPS_SCRIPT_URL;
+  var unlocked=false,unsub=null,lastAct=Date.now();
+  function ssGet(k){try{return sessionStorage.getItem(k)}catch(e){return null}}
+  function ssSet(k,v){try{if(v==null)sessionStorage.removeItem(k);else sessionStorage.setItem(k,v)}catch(e){}}
+  function keyGet(){var t=parseInt(ssGet('ppa_t')||'0',10);if(Date.now()-t>IDLE_MS){ssSet('ppa_key',null);return ''}return ssGet('ppa_key')||''}
+  function keySet(v){ssSet('ppa_key',v||null);ssSet('ppa_t',v?String(Date.now()):null)}
+  function touch(){lastAct=Date.now();if(unlocked)ssSet('ppa_t',String(lastAct))}
+  ['pointerdown','keydown','input','touchstart','scroll','wheel'].forEach(function(ev){document.addEventListener(ev,touch,{passive:true,capture:true})});
+
+  function lockUI(msg){
+    document.body.classList.add('locked');
+    var o=$('lock');
+    if(!o){
+      o=document.createElement('div');o.id='lock';
+      o.innerHTML='<div class="box lockbox"><div class="card"><label class="lbl" for="k-in">접속 키</label><input id="k-in" type="password" autocomplete="current-password"></div><span class="msg" id="k-msg" role="status"></span><button class="btn" id="k-ok">확인</button></div>';
+      document.body.appendChild(o);
+    }
+    o.hidden=false;$('k-msg').textContent=msg||'';$('k-in').value='';$('k-in').focus();
+  }
+  function askKey(msg){
     return new Promise(function(resolve){
-      var d=document.createElement('div');
-      d.className='box';d.style.cssText='position:fixed;left:50%;top:30%;transform:translateX(-50%);width:min(320px,90vw);z-index:20;box-shadow:0 8px 30px rgba(0,0,0,.35)';
-      d.innerHTML='<div class="card"><label class="lbl" for="k-in">접속 키</label><input id="k-in" type="password" autocomplete="current-password" style="font:inherit;font-size:16px;background:transparent;color:var(--fg);border:0;border-bottom:1px solid var(--line);padding:2px 0;width:100%"></div><button class="btn" id="k-ok">확인</button>';
-      document.body.appendChild(d);
-      var go=function(){var v=$('k-in').value.trim();if(!v)return;keySet(v);d.remove();resolve(v)};
-      $('k-ok').onclick=go;$('k-in').onkeydown=function(e){if(e.key==='Enter')go()};$('k-in').focus();
+      lockUI(msg);
+      var go=function(){var v=$('k-in').value.trim();if(!v)return;$('lock').hidden=true;document.body.classList.remove('locked');resolve(v)};
+      $('k-ok').onclick=go;$('k-in').onkeydown=function(e){if(e.key==='Enter')go()};
     });
   }
-  function sheetDb(url){
-    var loaders=[],key=keyGet();
+  function lockNow(msg){
+    unlocked=false;keySet('');
+    if(unsub){try{unsub()}catch(e){}unsub=null}
+    db=null;records=[];editId=null;
+    ['supply','demand'].forEach(function(k){state[k].level=0;$(k+'-price').value=''});
+    refresh();
+    startSession(msg);
+  }
+  function sheetDb(url,key){
+    var loaders=[];
     function call(body){
       body.key=key;
       return fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)})
@@ -257,7 +279,7 @@
         .then(function(j){
           if(!j.ok){
             var e=new Error(j.error||'error');e.code=j.error;
-            if(j.error==='unauthorized'){keySet('');setStatus('키 오류');setTimeout(function(){location.reload()},800)}
+            if(j.error==='unauthorized'&&unlocked)lockNow('키가 맞지 않습니다');
             throw e;
           }
           return j;
@@ -280,22 +302,34 @@
       }}
     }}};
   }
-  function getDb(){
-    var cfg=window.PPA_CONFIG||{};
-    if(cfg.APPS_SCRIPT_URL){
-      return (keyGet()?Promise.resolve(keyGet()):askKey()).then(function(){return sheetDb(cfg.APPS_SCRIPT_URL)});
+  function getDb(msg){
+    if(SHEET){
+      var k=keyGet();
+      return (k?Promise.resolve(k):askKey(msg)).then(function(key){
+        keySet(key);unlocked=true;touch();
+        return sheetDb(CFG.APPS_SCRIPT_URL,key);
+      });
     }
     if(window.claude&&window.claude.use)return window.claude.use('db');
     return Promise.resolve(null);
   }
-  getDb().then(function(d){
-    if(!d){setStatus('저장소 없음');return}
-    db=d;
-    var t=setTimeout(function(){setStatus('이력 불러오기 실패')},10000);
-    d.collection('records').onSnapshot(function(snap){
-      clearTimeout(t);
-      records=snap.docs.map(function(x){var v=x.data()||{};v.id=x.id;return v}).filter(function(r){return !r.deleted&&(r.side==='supply'||r.side==='demand')&&isFinite(r.level)&&(isFinite(r.gap)||isFinite(r.price))});
-      refresh();
-    },function(){clearTimeout(t);setStatus('이력 읽기 실패')});
-  }).catch(function(){});
+  function startSession(msg){
+    getDb(msg).then(function(d){
+      if(!d){setStatus('저장소 없음');return}
+      db=d;
+      var t=setTimeout(function(){setStatus('이력 불러오기 실패')},10000);
+      unsub=d.collection('records').onSnapshot(function(snap){
+        clearTimeout(t);
+        records=snap.docs.map(function(x){var v=x.data()||{};v.id=x.id;return v}).filter(function(r){return !r.deleted&&(r.side==='supply'||r.side==='demand')&&isFinite(r.level)&&(isFinite(r.gap)||isFinite(r.price))});
+        refresh();
+      },function(){clearTimeout(t);setStatus('이력 읽기 실패')});
+    }).catch(function(){});
+  }
+  if(!SHEET)document.body.classList.remove('locked');
+  else{
+    var idleCheck=function(){if(unlocked&&Date.now()-lastAct>IDLE_MS)lockNow('5분간 동작이 없어 잠겼습니다')};
+    setInterval(idleCheck,10000);
+    document.addEventListener('visibilitychange',function(){if(!document.hidden)idleCheck()});
+  }
+  startSession();
 })();
